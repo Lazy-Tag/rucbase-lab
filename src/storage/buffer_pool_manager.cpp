@@ -35,7 +35,15 @@ void BufferPoolManager::update_page(Page *page, PageId new_page_id, frame_id_t n
     // 1 如果是脏页，写回磁盘，并且把dirty置为false
     // 2 更新page table
     // 3 重置page的data，更新page id
+    page_id = page->get_page_id();
+    char *data = page->get_data();
+    if (page->is_dirty()) {
+        disk_manager_->write_page(page_id.fd, page_id.page_no, data, strlen(data));
+        page->is_dirty_ = false;
 
+        page->reset_memory();
+        page->_id = new_page_id;
+    }
 }
 
 /**
@@ -54,6 +62,20 @@ Page* BufferPoolManager::fetch_page(PageId page_id) {
     // 3.     调用disk_manager_的read_page读取目标页到frame
     // 4.     固定目标页，更新pin_count_
     // 5.     返回目标页
+
+    Page* page = nullptr;
+    for (int i = 0; i < pool_size_; i ++ )
+        if (pages[i]->_id == page_id) {
+            page = pages[i];
+            break;
+        }
+    if (!page) page->pin_count ++ ;
+    else {
+        int frame_id;
+        find_victim_page(&frame_id);
+        
+    }
+
     return nullptr;
 }
 
