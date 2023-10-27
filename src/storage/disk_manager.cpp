@@ -56,10 +56,7 @@ void DiskManager::read_page(int fd, page_id_t page_no, char *offset, int num_byt
         throw InternalError("DiskManager::read_page Error - lseek failed");
     }
 
-    ssize_t bytes_read = read(fd, offset, num_bytes);
-    if (bytes_read != num_bytes) {
-        throw InternalError("DiskManager::read_page Error");
-    }
+    read(fd, (int*) offset, num_bytes);
 }
 
 /**
@@ -116,6 +113,7 @@ void DiskManager::create_file(const std::string &path) {
     if (fd == -1) {
         throw FileExistsError("DiskManager::create_file Error - File creation failed");
     }
+    fd2pageno_[fd] = 0;
     close(fd);
 }
 

@@ -237,7 +237,7 @@ TEST_F(BufferPoolManagerTest, MultipleFilesTest) {
     // Flush and test disk
     for (auto &entry : fd2name) {
         int fd = entry.first;
-        buffer_pool_manager->flush_all_pages(fd);  // wirte all pages in fd file into disk
+        buffer_pool_manager->flush_all_pages(fd);  // write all pages in fd file into disk
         for (int page_no = 0; page_no < MAX_PAGES; page_no++) {
             // check disk: disk data == mock data
             disk_manager_->read_page(fd, page_no, buf, PAGE_SIZE);  // read page from disk (disk -> buf)
@@ -245,6 +245,7 @@ TEST_F(BufferPoolManagerTest, MultipleFilesTest) {
             EXPECT_EQ(memcmp(buf, mock_buf, PAGE_SIZE), 0);
             // check disk: disk data == page data
             Page *page = buffer_pool_manager->fetch_page(PageId{fd, page_no});
+
             EXPECT_EQ(memcmp(buf, page->get_data(), PAGE_SIZE), 0);
             bool unpin_flag = buffer_pool_manager->unpin_page(page->get_page_id(), false);
             EXPECT_EQ(unpin_flag, true);
