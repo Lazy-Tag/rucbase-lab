@@ -304,6 +304,6 @@ void BufferPoolManager::flush_all_pages(int fd) {
     std::unique_lock<std::mutex> lock3(disk_lock);
     int page_no = disk_manager_->get_fd2pageno(fd);
     lock3.unlock();
-    for (int i = 0; i < page_no; i ++ )
+    for (int i = 0; i < std::min(page_no, max_page); i ++ )
         flush_page({fd, i});
 }

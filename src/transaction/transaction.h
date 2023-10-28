@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <unordered_set>
 
 #include "txn_defs.h"
+#include <memory>
 
 class Transaction {
    public:

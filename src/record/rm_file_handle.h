@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 #include <assert.h>
 
 #include <memory>
+#include <error.h>
 
 #include "bitmap.h"
 #include "common/context.h"
@@ -30,11 +31,12 @@ struct RmPageHandle {
 
     RmPageHandle(const RmFileHdr *fhdr_, Page *page_) : file_hdr(fhdr_), page(page_) {
         page_hdr = reinterpret_cast<RmPageHdr *>(page->get_data() + page->OFFSET_PAGE_HDR);
+        page_hdr->next_free_page_no = -1;
         bitmap = page->get_data() + sizeof(RmPageHdr) + page->OFFSET_PAGE_HDR;
         slots = bitmap + file_hdr->bitmap_size;
     }
 
-    // 返回指定slot_no的slot存储收地址
+    // 返回指定slot_no的slot存储首地址
     char* get_slot(int slot_no) const {
         return slots + slot_no * file_hdr->record_size;  // slots的首地址 + slot个数 * 每个slot的大小(每个record的大小)
     }

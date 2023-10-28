@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 
 class BufferPoolManager {
    private:
+    const int max_page = 4096;
     size_t pool_size_;      // buffer_pool中可容纳页面的个数，即帧的个数
     Page *pages_;           // buffer_pool中的Page对象数组，在构造空间中申请内存空间，在析构函数中释放，大小为BUFFER_POOL_SIZE
     std::unordered_map<PageId, frame_id_t, PageIdHash> page_table_; // 帧号和页面号的映射哈希表，用于根据页面的PageId定位该页面的帧编号
