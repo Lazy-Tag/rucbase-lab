@@ -22,14 +22,13 @@ int IxNodeHandle::lower_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于等于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式，如顺序遍历、二分查找等；使用ix_compare()函数进行比较
-    auto& col_lens = file_hdr->col_lens_;
-    auto& col_types = file_hdr->col_types_;
-    for (int i = 0, offset = 0; i < page_hdr->num_key; i ++ , offset += file_hdr->col_tot_len_) {
-        if (ix_compare(keys + offset, target, col_types, col_lens) >= 0) {
-            return i;
-        }
+    int l = 0, r = page_hdr->num_key;
+    while (l < r) {
+        int mid = (l + r) >> 1;
+        if (ix_compare(get_key(mid), target, file_hdr->col_types_, file_hdr->col_lens_) >= 0) r = mid;
+        else l = mid + 1;
     }
-    return page_hdr->num_key;
+    return r;
 }
 
 /**
@@ -43,14 +42,13 @@ int IxNodeHandle::upper_bound(const char *target) const {
     // 查找当前节点中第一个大于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式：顺序遍历、二分查找等；使用ix_compare()函数进行比较
 
-    auto& col_lens = file_hdr->col_lens_;
-    auto& col_types = file_hdr->col_types_;
-    for (int i = 0, offset = 0; i < page_hdr->num_key; i ++ , offset += file_hdr->col_tot_len_) {
-        if (ix_compare(keys + offset, target, col_types, col_lens) > 0) {
-            return i;
-        }
+    int l = 0, r = page_hdr->num_key;
+    while (l < r) {
+        int mid = (l + r) >> 1;
+        if (ix_compare(get_key(mid), target, file_hdr->col_types_, file_hdr->col_lens_) > 0) r = mid;
+        else l = mid + 1;
     }
-    return page_hdr->num_key;
+    return r;
 }
 
 /**
@@ -67,10 +65,8 @@ bool IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
     // 2. 判断目标key是否存在
     // 3. 如果存在，获取key对应的Rid，并赋值给传出参数value
     // 提示：可以调用lower_bound()和get_rid()函数。
-    auto& col_lens = file_hdr->col_lens_;
-    auto& col_types = file_hdr->col_types_;
     int idx = lower_bound(key);
-    if (idx != page_hdr->num_key && !ix_compare(key, get_key(idx), col_types, col_lens)) {
+    if (idx != page_hdr->num_key && !ix_compare(key, get_key(idx), file_hdr->col_types_, file_hdr->col_lens_)) {
         *value = get_rid(idx);
         return true;
     }
@@ -144,10 +140,8 @@ int IxNodeHandle::insert(const char *key, const Rid &value) {
     // 2. 如果key重复则不插入
     // 3. 如果key不重复则插入键值对
     // 4. 返回完成插入操作之后的键值对数量
-    auto& col_lens = file_hdr->col_lens_;
-    auto& col_types = file_hdr->col_types_;
     int idx = lower_bound(key);
-    if (!page_hdr->num_key || ix_compare(get_key(idx), key, col_types, col_lens))
+    if (!page_hdr->num_key || ix_compare(get_key(idx), key, file_hdr->col_types_, file_hdr->col_lens_))
         insert_pairs(idx, key, &value, 1);
     return page_hdr->num_key;
 }
