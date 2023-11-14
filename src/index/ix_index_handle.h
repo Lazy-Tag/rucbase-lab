@@ -125,7 +125,7 @@ class IxNodeHandle {
 
     void erase_pair(int pos);
 
-    int remove(const char *key);
+    std::pair<int, int> remove(const char *key);
 
     /**
      * @brief used in internal node to remove the last key in root node, and return the last child

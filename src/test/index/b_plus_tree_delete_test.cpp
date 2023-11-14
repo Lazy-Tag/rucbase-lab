@@ -52,15 +52,15 @@ class BPlusTreeTests : public ::testing::Test {
             }
         }
         sm_->create_db(TEST_DB_NAME);
-        // assert(disk_manager_->is_dir(TEST_DB_NAME));
-        // 进入测试目录
-        // if (chdir(TEST_DB_NAME.c_str()) < 0) {
-        //     throw UnixError();
-        // }
-        // 如果测试文件存在，则先删除原文件（最后留下来的文件存的是最后一个测试点的数据）
-        // if (ix_manager_->exists(TEST_FILE_NAME, TEST_COL)) {
-        //     ix_manager_->destroy_index(TEST_FILE_NAME, TEST_COL);
-        // }
+         assert(disk_manager_->is_dir(TEST_DB_NAME));
+//         进入测试目录
+         if (chdir(TEST_DB_NAME.c_str()) < 0) {
+             throw UnixError();
+         }
+//         如果测试文件存在，则先删除原文件（最后留下来的文件存的是最后一个测试点的数据）
+         if (ix_manager_->exists(TEST_FILE_NAME, TEST_COL)) {
+             ix_manager_->destroy_index(TEST_FILE_NAME, TEST_COL);
+         }
         std::vector<ColDef> coldef;
         coldef.push_back({"col1", TYPE_INT, 4});
         coldef.push_back({"col2", TYPE_INT, 4});
@@ -357,7 +357,7 @@ TEST_F(BPlusTreeTests, InsertAndDeleteTest1) {
         bool delete_ret = ih_->delete_entry(index_key, txn_.get());  // 调用Delete
         ASSERT_EQ(delete_ret, true);
 
-        // Draw(buffer_pool_manager_.get(), "InsertAndDeleteTest1_delete" + std::to_string(key) + ".dot");
+//         Draw(buffer_pool_manager_.get(), "InsertAndDeleteTest1_delete" + std::to_string(key) + ".dot");
     }
 
     // scan keys by Ixscan
@@ -462,8 +462,8 @@ TEST_F(BPlusTreeTests, LargeScaleTest) {
             ASSERT_EQ(insert_ret, true);
             mock.insert(std::make_pair(rand_key, rand_val));
             add_cnt++;
-            // Draw(buffer_pool_manager_.get(),
-            //      "MixTest2_" + std::to_string(num) + "_insert" + std::to_string(rand_key) + ".dot");
+//             Draw(buffer_pool_manager_.get(),
+//                  "MixTest2_" + std::to_string(num) + "_insert" + std::to_string(rand_key) + ".dot");
         } else {
             // Delete
             if (mock.size() == 1) {  // 只剩最后一个结点时不删除，以防变成空树
@@ -486,7 +486,7 @@ TEST_F(BPlusTreeTests, LargeScaleTest) {
             // Draw(buffer_pool_manager_.get(),
             //      "MixTest2_" + std::to_string(num) + "_delete" + std::to_string(key) + ".dot");
         }
-        // check_all(ih_.get(), mock);
+//        check_all(ih_.get(), mock);
         num++;
     }
     std::cout << "Insert keys count: " << add_cnt << '\n' << "Delete keys count: " << del_cnt << '\n';
