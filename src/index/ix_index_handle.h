@@ -57,15 +57,26 @@ class IxNodeHandle {
     IxPageHdr *page_hdr;            // page->data的第一部分，指针指向首地址，长度为sizeof(IxPageHdr)
     char *keys;                     // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
     Rid *rids;                      // page->data的第三部分，指针指向首地址
+    int* mutex_state;
+    std::shared_mutex node_mutex;
 
    public:
     IxNodeHandle() = default;
 
     IxNodeHandle(const IxFileHdr *file_hdr_, Page *page_) : file_hdr(file_hdr_), page(page_) {
-        page_hdr = reinterpret_cast<IxPageHdr *>(page->get_data());
+        mutex_state = reinterpret_cast<int *>(page->get_data());
+        page_hdr = reinterpret_cast<IxPageHdr *>(page->get_data() + sizeof(int));
         keys = page->get_data() + sizeof(IxPageHdr);
         rids = reinterpret_cast<Rid *>(keys + file_hdr->keys_size_);
     }
+
+    void read_lock();
+
+    void read_unlock();
+
+    void write_lock();
+
+    void write_unlock();
 
     int get_size() { return page_hdr->num_key; }
 
@@ -125,7 +136,7 @@ class IxNodeHandle {
 
     void erase_pair(int pos);
 
-    int remove(const char *key);
+    std::pair<int, int> remove(const char *key);
 
     /**
      * @brief used in internal node to remove the last key in root node, and return the last child
@@ -190,7 +201,7 @@ class IxIndexHandle {
 
     bool coalesce_or_redistribute(IxNodeHandle *node, Transaction *transaction = nullptr,
                                 bool *root_is_latched = nullptr);
-    bool adjust_root(IxNodeHandle *old_root_node);
+    bool adjust_root(IxNodeHandle *old_root_node, Transaction* transaction);
 
     void redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node, IxNodeHandle *parent, int index);
 
@@ -227,4 +238,6 @@ class IxIndexHandle {
 
     // for index test
     Rid get_rid(const Iid &iid) const;
+
+    void unlock_ancestor(Transaction* transaction);
 };

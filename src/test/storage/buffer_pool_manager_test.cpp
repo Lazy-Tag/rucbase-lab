@@ -267,7 +267,7 @@ TEST_F(BufferPoolManagerTest, MultipleFilesTest) {
 
         // flush
         if (rand() % 10 == 0) {
-            buffer_pool_manager->flush_page(page->get_page_id());
+            buffer_pool_manager->flush_page(page->get_page_id(), false);
             // check disk: disk data == mock data
             disk_manager_->read_page(fd, page_no, buf, PAGE_SIZE);  // read page from disk (disk -> buf)
             char *mock_buf = &mock[fd][page_no * PAGE_SIZE];        // get mock address in (fd,page_no)
@@ -397,7 +397,7 @@ TEST_F(BufferPoolManagerTest, ConcurrencyTest) {
                     EXPECT_NE(nullptr, page);
                     strcpy(page->get_data(), std::to_string(temp_page_id.page_no).c_str());
                     // FLush page instead of unpining with true
-                    EXPECT_EQ(true, bpm->flush_page(temp_page_id));
+                    EXPECT_EQ(true, bpm->flush_page(temp_page_id, false));
                     EXPECT_EQ(true, bpm->unpin_page(temp_page_id, false));
 
                     // Flood with new pages

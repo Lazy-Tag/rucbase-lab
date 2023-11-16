@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include <deque>
 #include <string>
 #include <thread>
+#include <memory>
 #include <unordered_set>
 
 #include "txn_defs.h"
@@ -59,6 +60,8 @@ class Transaction {
 
     inline std::shared_ptr<std::deque<Page*>> get_index_latch_page_set() { return index_latch_page_set_; }
     inline void append_index_latch_page_set(Page* page) { index_latch_page_set_->push_back(page); }
+    inline void pop_index_latch_page_set() { index_latch_page_set_->pop_back(); }
+    inline void clear_index_latch_page_set() { index_latch_page_set_->clear(); }
 
     inline std::shared_ptr<std::unordered_set<LockDataId>> get_lock_set() { return lock_set_; }
 

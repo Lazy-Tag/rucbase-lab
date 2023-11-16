@@ -34,7 +34,7 @@ class BufferPoolManager {
     std::list<frame_id_t> free_list_;   // 空闲帧编号的链表
     DiskManager *disk_manager_;
     Replacer *replacer_;    // buffer_pool的置换策略，当前赛题中为LRU置换策略
-    std::mutex page_lock, map_lock, disk_lock;      // 用于共享数据结构的并发控制
+    std::mutex page_lock;    // 用于共享数据结构的并发控制
 
    public:
     BufferPoolManager(size_t pool_size, DiskManager *disk_manager)
@@ -71,7 +71,7 @@ class BufferPoolManager {
 
     bool unpin_page(PageId page_id, bool is_dirty);
 
-    bool flush_page(PageId page_id);
+    bool flush_page(PageId page_id, bool is_locked);
 
     Page* new_page(PageId* page_id);
 

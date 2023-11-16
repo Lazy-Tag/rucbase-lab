@@ -11,6 +11,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <vector>
+#include <shared_mutex>
 
 #include "defs.h"
 #include "storage/buffer_pool_manager.h"
