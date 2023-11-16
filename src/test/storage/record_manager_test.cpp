@@ -128,7 +128,7 @@ TEST(RecordManagerTest, SimpleTest) {
             Rid rid = file_handle->insert_record(write_buf, context);
             mock[rid] = std::string((char *)write_buf, file_handle->file_hdr_.record_size);
             add_cnt++;
-                        std::cout << "insert " << rid << '\n'; // operator<<(cout,rid)
+//                        std::cout << "insert " << rid << '\n'; // operator<<(cout,rid)
         } else {
             // update or erase random rid
             int rid_idx = rand() % mock.size();
