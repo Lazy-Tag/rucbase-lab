@@ -270,14 +270,14 @@ class BPlusTreeTests : public ::testing::Test {
             // test lower bound
             {
                 auto mock_lower = mock.lower_bound(mock_key);        // multimap的lower_bound方法
-                Iid iid = ih->lower_bound((const char *)&mock_key);  // IxIndexHandle的lower_bound方法
+                Iid iid = ih->lower_bound((const char *)&mock_key, txn_.get());  // IxIndexHandle的lower_bound方法
                 Rid rid = ih->get_rid(iid);
                 ASSERT_EQ(rid, mock_lower->second);
             }
             // test upper bound
             {
                 auto mock_upper = mock.upper_bound(mock_key);
-                Iid iid = ih->upper_bound((const char *)&mock_key);
+                Iid iid = ih->upper_bound((const char *)&mock_key, txn_.get());
                 if (iid != ih->leaf_end()) {
                     Rid rid = ih->get_rid(iid);
                     ASSERT_EQ(rid, mock_upper->second);
@@ -312,7 +312,7 @@ class BPlusTreeTests : public ::testing::Test {
  * @note lab2 计分：10 points
  */
 TEST_F(BPlusTreeTests, InsertTest) {
-    const int64_t scale = 10;
+    const int64_t scale = 30;
     const int order = 3;
 
     assert(order > 2 && order <= ih_->file_hdr_->btree_order_);
@@ -332,7 +332,7 @@ TEST_F(BPlusTreeTests, InsertTest) {
         bool insert_ret = ih_->insert_entry(index_key, rid, txn_.get());  // 调用Insert
         ASSERT_EQ(insert_ret, true);
 
-        // Draw(buffer_pool_manager_.get(), "insert" + std::to_string(key) + ".dot");
+         Draw(buffer_pool_manager_.get(), "insert" + std::to_string(key) + ".dot");
     }
 
     std::vector<Rid> rids;

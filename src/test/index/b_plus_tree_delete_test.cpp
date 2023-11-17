@@ -270,14 +270,14 @@ class BPlusTreeTests : public ::testing::Test {
             // test lower bound
             {
                 auto mock_lower = mock.lower_bound(mock_key);        // multimap的lower_bound方法
-                Iid iid = ih->lower_bound((const char *)&mock_key);  // IxIndexHandle的lower_bound方法
+                Iid iid = ih->lower_bound((const char *)&mock_key, txn_.get());  // IxIndexHandle的lower_bound方法
                 Rid rid = ih->get_rid(iid);
                 ASSERT_EQ(rid, mock_lower->second);
             }
             // test upper bound
             {
                 auto mock_upper = mock.upper_bound(mock_key);
-                Iid iid = ih->upper_bound((const char *)&mock_key);
+                Iid iid = ih->upper_bound((const char *)&mock_key, txn_.get());
                 if (iid != ih->leaf_end()) {
                     Rid rid = ih->get_rid(iid);
                     ASSERT_EQ(rid, mock_upper->second);
@@ -357,7 +357,7 @@ TEST_F(BPlusTreeTests, InsertAndDeleteTest1) {
         bool delete_ret = ih_->delete_entry(index_key, txn_.get());  // 调用Delete
         ASSERT_EQ(delete_ret, true);
 
-        // Draw(buffer_pool_manager_.get(), "InsertAndDeleteTest1_delete" + std::to_string(key) + ".dot");
+//        Draw(buffer_pool_manager_.get(), "InsertAndDeleteTest1_delete" + std::to_string(key) + ".dot");
     }
 
     // scan keys by Ixscan
