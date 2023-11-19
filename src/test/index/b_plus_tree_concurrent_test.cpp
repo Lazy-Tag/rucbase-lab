@@ -382,7 +382,7 @@ void DeleteHelper(IxIndexHandle *tree, const std::vector<int64_t> &keys,
 TEST_F(BPlusTreeConcurrentTest, InsertScaleTest) {
     const int64_t scale = 10000;
     const int thread_num = 50;
-    const int order = 20;
+    const int order = 255;
 
     assert(order > 2 && order <= ih_->file_hdr_->btree_order_);
     ih_->file_hdr_->btree_order_ = order;
@@ -424,7 +424,7 @@ TEST_F(BPlusTreeConcurrentTest, MixScaleTest) {
     const int64_t scale = 10000;
     const int64_t delete_scale = 9900;
     const int thread_num = 50;
-    const int order = 20;
+    const int order = 255;
 
     assert(order > 2 && order <= ih_->file_hdr_->btree_order_);
     ih_->file_hdr_->btree_order_ = order;
