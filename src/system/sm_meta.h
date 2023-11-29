@@ -37,6 +37,14 @@ struct ColMeta {
     friend std::istream &operator>>(std::istream &is, ColMeta &col) {
         return is >> col.tab_name >> col.name >> col.type >> col.len >> col.offset >> col.index;
     }
+
+    bool operator< (const ColMeta& col_meta) const {
+        return name < col_meta.name;
+    }
+
+    bool operator!= (const ColMeta& col_meta) const {
+        return name != col_meta.name;
+    }
 };
 
 /* 索引元数据 */
@@ -52,6 +60,18 @@ struct IndexMeta {
             os << "\n" << col;
         }
         return os;
+    }
+
+    bool operator == (IndexMeta& index_meta) {
+        if (index_meta.col_num != col_num)
+            return false;
+        std::sort(cols.begin(), cols.end());
+        std::sort(index_meta.cols.begin(), index_meta.cols.end());
+
+        for (size_t i = 0; i < col_num; i ++ )
+            if (cols[i] != index_meta.cols[i])
+                return false;
+        return true;
     }
 
     friend std::istream &operator>>(std::istream &is, IndexMeta &index) {

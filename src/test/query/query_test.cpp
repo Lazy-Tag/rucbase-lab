@@ -13,9 +13,13 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <fstream>
+#include <mutex>
 
 #define MAX_MEM_BUFFER_SIZE 8192
 #define PORT_DEFAULT 8765
+#define MAX_CLIENT_NUM 4    // 同时连接服务端的客户端数量
+#define MAX_TXN_PER_CLIENT 1000 // 每个客户端执行的事务数量
 
 bool is_exit_command(std::string &cmd) { return cmd == "exit" || cmd == "exit;" || cmd == "bye" || cmd == "bye;"; }
 
@@ -68,6 +72,27 @@ int init_tcp_sock(const char *server_host, int server_port) {
     return sockfd;
 }
 
+void send_recv_sql(int sockfd, std::string sql) {
+    int send_bytes;
+    char recv_buf[MAX_MEM_BUFFER_SIZE];
+
+    if((send_bytes = write(sockfd, sql.c_str(), sql.length() + 1)) == -1) {
+        std::cerr << "send error: " << errno << ":" << strerror(errno) << " \n" << std::endl;
+        exit(1);
+    }
+
+    int len = recv(sockfd, recv_buf, MAX_MEM_BUFFER_SIZE, 0);
+    if (len < 0) {
+        fprintf(stderr, "Connection was broken: %s\n", strerror(errno));
+        return;
+    } else if (len == 0) {
+        printf("Connection has been closed\n");
+        return;
+    }
+
+    // printf("%s\n", recv_buf);
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;  // set_terminal_noncanonical();
                   //    if (ret < 0) {
@@ -79,6 +104,8 @@ int main(int argc, char *argv[]) {
     const char *server_host = "127.0.0.1";  // 127.0.0.1 192.168.31.25
     int server_port = PORT_DEFAULT;
     int opt;
+    std::string test_name = argv[1];
+
 
     while ((opt = getopt(argc, argv, "s:h:p:")) > 0) {
         switch (opt) {
@@ -99,7 +126,7 @@ int main(int argc, char *argv[]) {
 
     // const char *prompt_str = "RucBase > ";
 
-    int sockfd, send_bytes;
+    int sockfd;
     // char send[MAXLINE];
 
     if (unix_socket_path != nullptr) {
@@ -111,49 +138,16 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    char recv_buf[MAX_MEM_BUFFER_SIZE];
+    std::ifstream test;
+    std::string sql;
 
-    while (1) {
-        char *line_read = readline("Rucbase> ");
-        if (line_read == nullptr) {
-            // EOF encountered
-            break;
-        }
-        std::string command = line_read;
-        free(line_read);
-
-        if (!command.empty()) {
-            add_history(command.c_str());
-            if (is_exit_command(command)) {
-                printf("The client will be closed.\n");
-                break;
-            }
-
-            if ((send_bytes = write(sockfd, command.c_str(), command.length() + 1)) == -1) {
-                // fprintf(stderr, "send error: %d:%s \n", errno, strerror(errno));
-                std::cerr << "send error: " << errno << ":" << strerror(errno) << " \n" << std::endl;
-                exit(1);
-            }
-            int len = recv(sockfd, recv_buf, MAX_MEM_BUFFER_SIZE, 0);
-            if (len < 0) {
-                fprintf(stderr, "Connection was broken: %s\n", strerror(errno));
-                break;
-            } else if (len == 0) {
-                printf("Connection has been closed\n");
-                break;
-            } else {
-                for (int i = 0; i <= len; i++) {
-                    if (recv_buf[i] == '\0') {
-                        break;
-                    } else {
-                        printf("%c", recv_buf[i]);
-                    }
-                }
-                memset(recv_buf, 0, MAX_MEM_BUFFER_SIZE);
-            }
-        }
+    // 测试点1
+    test.open(test_name);
+    while(std::getline(test, sql)) {
+        send_recv_sql(sockfd, sql);
     }
+
     close(sockfd);
-    printf("Bye.\n");
+
     return 0;
 }
