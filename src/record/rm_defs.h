@@ -69,7 +69,7 @@ struct RmRecord {
         allocated_ = true;
     }
 
-    void SetData(char* data_) {
+    void SetData(const char* data_) {
         memcpy(data, data_, size);
     }
 

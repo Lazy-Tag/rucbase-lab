@@ -64,7 +64,7 @@ class InsertExecutor : public AbstractExecutor {
             }
             ih->insert_entry(key, rid_, context_->txn_);
         }
-        return nullptr;
+        return std::make_unique<RmRecord>(rec);
     }
     Rid &rid() override { return rid_; }
 };
