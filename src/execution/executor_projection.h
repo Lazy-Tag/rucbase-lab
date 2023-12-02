@@ -73,5 +73,7 @@ class ProjectionExecutor : public AbstractExecutor {
         return std::make_unique<RmRecord>(rec);
     }
 
+    std::string getType() { return "ProjectionExecutor"; };
+
     Rid &rid() override { return _abstract_rid; }
 };

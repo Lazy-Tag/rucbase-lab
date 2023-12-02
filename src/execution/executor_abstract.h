@@ -26,7 +26,7 @@ class AbstractExecutor {
     virtual size_t tupleLen() const { return 0; }
 
     virtual const std::vector<ColMeta> &cols() const {
-
+        return std::vector<ColMeta>();
     }
 
     virtual std::string getType() { return "AbstractExecutor"; };
@@ -38,6 +38,8 @@ class AbstractExecutor {
     virtual bool is_end() const {
         return true;
     }
+
+    virtual std::vector<Value> constructVal() {}
 
     virtual Rid &rid() = 0;
 

@@ -23,6 +23,7 @@ class DeleteExecutor : public AbstractExecutor {
     std::vector<Rid> rids_;         // 需要删除的记录的位置
     std::string tab_name_;          // 表名称
     SmManager *sm_manager_;
+    int len_;
 
    public:
     DeleteExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<Condition> conds,
@@ -34,11 +35,34 @@ class DeleteExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
+        for (const auto& col : tab_.cols)
+            len_ += col.len;
     }
 
     std::unique_ptr<RmRecord> Next() override {
+        for (const auto& rid : rids_) {
+            auto page_handle = fh_->fetch_page_handle(rid.page_no);
+            char* buf = new char[len_ + 1];
+            memcpy(buf, page_handle.get_slot(rid.slot_no), len_);
+
+            fh_->delete_record(rid, context_);
+            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
+                auto& index = tab_.indexes[i];
+                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
+                char* key = new char[index.col_tot_len];
+                int offset = 0;
+                for(size_t j = 0; j < index.col_num; ++j) {
+                    memcpy(key + offset, buf + index.cols[j].offset, index.cols[j].len);
+                    offset += index.cols[j].len;
+                }
+                ih->delete_entry(key, context_->txn_);
+            }
+        }
+
         return nullptr;
     }
+
+    std::string getType() { return "DeleteExecutor"; };
 
     Rid &rid() override { return _abstract_rid; }
 };

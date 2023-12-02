@@ -43,17 +43,35 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
     }
 
-    void beginTuple() override {
+    bool satisfyCond(const std::vector<Value>& left, const std::vector<Value>& right) {
+        
+    }
 
+    void beginTuple() override {
+        left_->beginTuple();
+        right_->beginTuple();
     }
 
     void nextTuple() override {
-        
+        do {
+            right_->nextTuple();
+            if (right_->is_end()) {
+                right_->beginTuple();
+                left_->nextTuple();
+            } else if(left_->is_end())
+                break;
+        } while (!satisfyCond(left_->constructVal(), right_->constructVal()));
+    }
+
+    bool is_end() const override {
+        return left_->is_end();
     }
 
     std::unique_ptr<RmRecord> Next() override {
         return nullptr;
     }
+
+    std::string getType() { return "NestedLoopJoinExecutor"; };
 
     Rid &rid() override { return _abstract_rid; }
 };

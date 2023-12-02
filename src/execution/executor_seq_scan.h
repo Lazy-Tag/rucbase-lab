@@ -26,7 +26,7 @@ class SeqScanExecutor : public AbstractExecutor {
     std::vector<Condition> fed_conds_;  // 同conds_，两个字段相同
 
     Rid rid_;
-    std::unique_ptr<RecScan> scan_;     // table_iterator
+    std::unique_ptr<RecScan> scan_;  // table_iterator
 
     SmManager *sm_manager_;
 
@@ -47,21 +47,21 @@ class SeqScanExecutor : public AbstractExecutor {
 
     std::vector<Value> constructVal() {
         auto page_handle = fh_->fetch_page_handle(rid_.page_no);
-        char* buf = new char[len_ + 1];
+        char *buf = new char[len_ + 1];
         memcpy(buf, page_handle.get_slot(rid_.slot_no), len_);
         Value val;
         std::vector<Value> vec;
-        for (auto col : cols_) {
+        for (const auto &col : cols_) {
             char dest[col.len + 1];
             memcpy(dest, buf + col.offset, col.len);
             dest[col.len] = '\0';
             val.type = col.type;
             switch (col.type) {
                 case TYPE_INT:
-                    val.set_int(*(int*) dest);
+                    val.set_int(*(int *)dest);
                     break;
                 case TYPE_FLOAT:
-                    val.set_float(*(float*) dest);
+                    val.set_float(*(float *)dest);
                     break;
                 case TYPE_STRING:
                     val.set_str(dest);
@@ -73,22 +73,31 @@ class SeqScanExecutor : public AbstractExecutor {
         return vec;
     }
 
-    int compare(Value& a, Value& b) {
+    int compare(Value &a, Value &b) {
         switch (a.type) {
             case TYPE_INT:
-                if (a.int_val > b.int_val) return 1;
-                else if (a.int_val == b.int_val) return 0;
-                else return -1;
+                if (a.int_val > b.int_val)
+                    return 1;
+                else if (a.int_val == b.int_val)
+                    return 0;
+                else
+                    return -1;
                 break;
             case TYPE_FLOAT:
-                if (a.float_val > b.float_val) return 1;
-                else if (a.float_val == b.float_val) return 0;
-                else return -1;
+                if (a.float_val > b.float_val)
+                    return 1;
+                else if (a.float_val == b.float_val)
+                    return 0;
+                else
+                    return -1;
                 break;
             case TYPE_STRING:
-                if (a.str_val > b.str_val) return 1;
-                else if (a.str_val == b.str_val) return 0;
-                else return -1;
+                if (a.str_val > b.str_val)
+                    return 1;
+                else if (a.str_val == b.str_val)
+                    return 0;
+                else
+                    return -1;
                 break;
         }
     }
@@ -99,9 +108,8 @@ class SeqScanExecutor : public AbstractExecutor {
         for (auto cond : conds_) {
             auto condition = cond.op;
             auto col_name = cond.lhs_col.col_name;
-            int index = std::distance(cols_.begin(), std::find_if(cols_.begin(), cols_.end(), [&](ColMeta& col) {
-                return col.name == col_name;
-            }));
+            int index = std::distance(cols_.begin(), std::find_if(cols_.begin(), cols_.end(),
+                                                                  [&](ColMeta &col) { return col.name == col_name; }));
             switch (condition) {
                 case OP_EQ:
                     flag = compare(values[index], cond.rhs_val) == 0;
@@ -128,9 +136,7 @@ class SeqScanExecutor : public AbstractExecutor {
         return true;
     }
 
-    const std::vector<ColMeta> &cols() const override {
-        return cols_;
-    };
+    const std::vector<ColMeta> &cols() const override { return cols_; };
 
     /**
      * @brief 构建表迭代器scan_,并开始迭代扫描,直到扫描到第一个满足谓词条件的元组停止,并赋值给rid_
@@ -141,8 +147,7 @@ class SeqScanExecutor : public AbstractExecutor {
         rid_ = scan_->rid();
         while (!scan_->is_end() && !satisfyCond()) {
             scan_->next();
-            if (!scan_->is_end())
-                rid_ = scan_->rid();
+            if (!scan_->is_end()) rid_ = scan_->rid();
         }
     }
 
@@ -153,8 +158,7 @@ class SeqScanExecutor : public AbstractExecutor {
     void nextTuple() override {
         do {
             scan_->next();
-            if (scan_->is_end())
-                break;
+            if (scan_->is_end()) break;
             rid_ = scan_->rid();
         } while (!satisfyCond());
     }
@@ -179,9 +183,9 @@ class SeqScanExecutor : public AbstractExecutor {
         return std::make_unique<RmRecord>(rec);
     }
 
-    bool is_end() const override {
-        return scan_->is_end();
-    }
+    bool is_end() const override { return scan_->is_end(); }
+
+    std::string getType() { return "SeqScanExecutor"; };
 
     Rid &rid() override { return rid_; }
 };
