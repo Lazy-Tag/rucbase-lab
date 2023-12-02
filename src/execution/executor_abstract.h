@@ -29,6 +29,8 @@ class AbstractExecutor {
         return std::vector<ColMeta>();
     }
 
+    virtual RmFileHandle* getFileHandle() const {}
+
     virtual std::string getType() { return "AbstractExecutor"; };
 
     virtual void beginTuple(){};
@@ -55,5 +57,34 @@ class AbstractExecutor {
             throw ColumnNotFoundError(target.tab_name + '.' + target.col_name);
         }
         return pos;
+    }
+
+    static int compare(const Value &a, const Value &b) {
+        switch (a.type) {
+            case TYPE_INT:
+                if (a.int_val > b.int_val)
+                    return 1;
+                else if (a.int_val == b.int_val)
+                    return 0;
+                else
+                    return -1;
+                break;
+            case TYPE_FLOAT:
+                if (a.float_val > b.float_val)
+                    return 1;
+                else if (a.float_val == b.float_val)
+                    return 0;
+                else
+                    return -1;
+                break;
+            case TYPE_STRING:
+                if (a.str_val > b.str_val)
+                    return 1;
+                else if (a.str_val == b.str_val)
+                    return 0;
+                else
+                    return -1;
+                break;
+        }
     }
 };

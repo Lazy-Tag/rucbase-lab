@@ -43,7 +43,7 @@ struct ColMeta {
     }
 
     bool operator!= (const ColMeta& col_meta) const {
-        return name != col_meta.name;
+        return name != col_meta.name || tab_name != col_meta.tab_name;
     }
 };
 

@@ -45,6 +45,10 @@ class SeqScanExecutor : public AbstractExecutor {
         fed_conds_ = conds_;
     }
 
+    RmFileHandle* getFileHandle() const override {
+        return fh_;
+    }
+
     std::vector<Value> constructVal() {
         auto page_handle = fh_->fetch_page_handle(rid_.page_no);
         char *buf = new char[len_ + 1];
@@ -71,35 +75,6 @@ class SeqScanExecutor : public AbstractExecutor {
         }
         delete[] buf;
         return vec;
-    }
-
-    int compare(Value &a, Value &b) {
-        switch (a.type) {
-            case TYPE_INT:
-                if (a.int_val > b.int_val)
-                    return 1;
-                else if (a.int_val == b.int_val)
-                    return 0;
-                else
-                    return -1;
-                break;
-            case TYPE_FLOAT:
-                if (a.float_val > b.float_val)
-                    return 1;
-                else if (a.float_val == b.float_val)
-                    return 0;
-                else
-                    return -1;
-                break;
-            case TYPE_STRING:
-                if (a.str_val > b.str_val)
-                    return 1;
-                else if (a.str_val == b.str_val)
-                    return 0;
-                else
-                    return -1;
-                break;
-        }
     }
 
     bool satisfyCond() {
@@ -137,6 +112,8 @@ class SeqScanExecutor : public AbstractExecutor {
     }
 
     const std::vector<ColMeta> &cols() const override { return cols_; };
+
+    size_t tupleLen() const override { return len_; }
 
     /**
      * @brief 构建表迭代器scan_,并开始迭代扫描,直到扫描到第一个满足谓词条件的元组停止,并赋值给rid_
