@@ -177,9 +177,6 @@ private:
 - `drop_table(const std::string, Context *)`
 - `create_index(const std::string, const std::string, Context *)`
 - `drop_index(const std::string, const std::string, Context *)`
-- `insert_into(const std::string, std::vector<Value>, Context *)`
-- `delete_from(const std::string, std::vector<Condition>, Context *)`
-- `update_set(const std::string, std::vector<SetClause>, std::vector<Condition>, Context *)`
 
 **提示**：除了事务锁的申请，还需要考虑`txn_map`等共享数据结构。
 
@@ -237,8 +234,8 @@ python transaction_test_bonus.py
 
 |  **测试点**  |  **测试内容**  |  **分数**  |
 | ------------- | ----------------- | ------------- |
-|  `commit_index_test`  |  事务的开始与提交  |  20  |
-|  `abort_index_test`  |  事务的开始与回滚  |  20  |
+|  `commit_index_test`  |  事务的开始与提交  |  10  |
+|  `abort_index_test`  |  事务的开始与回滚  |  10  |
 
 ### 任务2：幻读数据异常（20分）
 在实验二中，没有对幻读数据异常进行测试，在本任务中，你需要规避幻读数据异常。可以通过表锁来规避幻读数据异常，但是会降低系统的并发度，因此，最合理的做法是通过间隙锁来规避幻读数据异常。
