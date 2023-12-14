@@ -54,7 +54,6 @@ class BPlusTreeConcurrentTest : public ::testing::Test {
             }
         }
         sm_->create_db(TEST_DB_NAME);
-<<<<<<< HEAD
          assert(disk_manager_->is_dir(TEST_DB_NAME));
         // 进入测试目录
          if (chdir(TEST_DB_NAME.c_str()) < 0) {
@@ -64,17 +63,6 @@ class BPlusTreeConcurrentTest : public ::testing::Test {
          if (ix_manager_->exists(TEST_FILE_NAME, TEST_COL)) {
              ix_manager_->destroy_index(TEST_FILE_NAME, TEST_COL);
          }
-=======
-        assert(disk_manager_->is_dir(TEST_DB_NAME));
-        // 进入测试目录
-        if (chdir(TEST_DB_NAME.c_str()) < 0) {
-            throw UnixError();
-        }
-        // 如果测试文件存在，则先删除原文件（最后留下来的文件存的是最后一个测试点的数据）
-        if (ix_manager_->exists(TEST_FILE_NAME, TEST_COL)) {
-            ix_manager_->destroy_index(TEST_FILE_NAME, TEST_COL);
-        }
->>>>>>> 472ca4f492a7f0678a663e7a959de5889f67b859
         std::vector<ColDef> coldef;
         coldef.push_back({"col1", TYPE_INT, 4});
         coldef.push_back({"col2", TYPE_INT, 4});
@@ -190,7 +178,7 @@ class BPlusTreeConcurrentTest : public ::testing::Test {
     void Draw(BufferPoolManager *bpm, const std::string &outf) {
         std::ofstream out(outf);
         out << "digraph G {" << std::endl;
-        
+
         IxNodeHandle *node = ih_->fetch_node(ih_->file_hdr_->root_page_);
         ToGraph(ih_.get(), node, bpm, out);
         out << "}" << std::endl;

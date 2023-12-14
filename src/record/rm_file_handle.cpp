@@ -20,6 +20,7 @@ std::unique_ptr<RmRecord> RmFileHandle::get_record(const Rid& rid, Context* cont
     // Todo:
     // 1. 获取指定记录所在的page handle
     // 2. 初始化一个指向RmRecord的指针（赋值其内部的data和size）
+    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
     RmPageHandle page_handle = fetch_page_handle(rid.page_no);
     char* data = page_handle.get_slot(rid.slot_no);
     RmRecord* record = new RmRecord(page_handle.file_hdr->record_size, data);
@@ -44,7 +45,12 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
     int bitmap_size = page_handle.file_hdr->num_records_per_page;
     char* bitmap = page_handle.bitmap;
     int slot_no = Bitmap::first_bit(0, bitmap, bitmap_size);
+    Rid rid = {page_handle.page->get_page_id().page_no, slot_no};
+    if (context->txn_ && !context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_)) {
+        return {-1, -1};
+    }
     memcpy(page_handle.get_slot(slot_no), buf, file_hdr_.record_size);
+
     Bitmap::set(bitmap, slot_no);
     page_handle.page_hdr->num_records ++ ;
     if (page_handle.page_hdr->num_records == file_hdr_.num_records_per_page) {
@@ -56,7 +62,7 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
         }
     }
 
-    return Rid{page_handle.page->get_page_id().page_no, slot_no};
+    return rid;
 }
 
 /**
@@ -76,15 +82,18 @@ void RmFileHandle::insert_record(const Rid& rid, char* buf) {
  * @param {Rid&} rid 要删除的记录的记录号（位置）
  * @param {Context*} context
  */
-void RmFileHandle::delete_record(const Rid& rid, Context* context) {
+bool RmFileHandle::delete_record(const Rid& rid, Context* context) {
     // Todo:
     // 1. 获取指定记录所在的page handle
     // 2. 更新page_handle.page_hdr中的数据结构
     // 注意考虑删除一条记录后页面未满的情况，需要调用release_page_handle()
+    if (!context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_))
+        return false;
     RmPageHandle page_handle = fetch_page_handle(rid.page_no);
     char* bitmap = page_handle.bitmap;
     Bitmap::reset(bitmap, rid.slot_no);
     release_page_handle(page_handle);
+    return true;
 }
 
 
@@ -94,12 +103,15 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
  * @param {char*} buf 新记录的数据
  * @param {Context*} context
  */
-void RmFileHandle::update_record(const Rid& rid, char* buf, Context* context) {
+bool RmFileHandle::update_record(const Rid& rid, char* buf, Context* context) {
     // Todo:
     // 1. 获取指定记录所在的page handle
     // 2. 更新记录
+    if (!context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_))
+        return false;
     RmPageHandle page_handle = fetch_page_handle(rid.page_no);
     memcpy(page_handle.get_slot(rid.slot_no), buf, page_handle.file_hdr->record_size);
+    return true;
 }
 
 /**
@@ -158,6 +170,14 @@ RmPageHandle RmFileHandle::create_page_handle() {
         return RmPageHandle(&file_hdr_, page);
     }
     return create_new_page_handle();
+}
+
+bool RmFileHandle::getRecord(char* buf, const Rid& rid, Context* context, int len) {
+    if (!context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_))
+        return false;
+    auto page_handle = fetch_page_handle(rid.page_no);
+    memcpy(buf, page_handle.get_slot(rid.slot_no), len);
+    return true;
 }
 
 /**

@@ -51,20 +51,29 @@ class InsertExecutor : public AbstractExecutor {
         }
         // Insert into record file
         rid_ = fh_->insert_record(rec.data, context_);
+        if (rid_.page_no == -1) {
+            throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
+        }
         
         // Insert into index
         for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-            auto& index = tab_.indexes[i];
+            auto &index = tab_.indexes[i];
             auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-            char* key = new char[index.col_tot_len];
+            char *key = new char[index.col_tot_len];
             int offset = 0;
-            for(size_t j = 0; j < index.col_num; ++j) {
+            for (size_t j = 0; j < index.col_num; ++j) {
                 memcpy(key + offset, rec.data + index.cols[j].offset, index.cols[j].len);
                 offset += index.cols[j].len;
             }
             ih->insert_entry(key, rid_, context_->txn_);
         }
-        return std::make_unique<RmRecord>(rec);
+
+        auto write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
+        context_->txn_->append_write_record(write_record);
+        return nullptr;
     }
+
     Rid &rid() override { return rid_; }
+
+    std::string getType() { return "InsertExecutor"; };
 };

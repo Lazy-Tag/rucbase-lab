@@ -198,7 +198,8 @@ void SmManager::create_table(const std::string& tab_name, const std::vector<ColD
     }
     // Create & open record file
     int record_size = curr_offset;  // record_size就是col meta所占的大小（表的元数据也是以记录的形式进行存储的）
-    rm_manager_->create_file(tab_name, record_size);
+    int fd = rm_manager_->create_file(tab_name, record_size);
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fd);
     db_.tabs_[tab_name] = tab;
     // fhs_[tab_name] = rm_manager_->open_file(tab_name);
     fhs_.emplace(tab_name, rm_manager_->open_file(tab_name));
@@ -218,7 +219,8 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
         ix_manager_->destroy_index(tab_name, index.cols);
         ihs_.erase(idx_name);
     }
-    rm_manager_->destroy_file(tab_name);
+    int fd = rm_manager_->destroy_file(tab_name);
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fd);
     fhs_.erase(tab_name);
     db_.tabs_.erase(tab_name);
 }
@@ -236,6 +238,7 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
         auto it = tab_meta.get_col(col);
         col_meta.push_back(*it);
     }
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, disk_manager_->get_fd2path(tab_name));
     ix_manager_->create_index(tab_name, col_meta);
 }
 
@@ -249,6 +252,7 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
     std::vector<ColMeta> cols;
     for (size_t i = 0; i < cols.size(); i ++ )
         cols.push_back({tab_name, col_names[i]});
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, disk_manager_->get_fd2path(tab_name));
     drop_index(tab_name, cols, context);
 }
 

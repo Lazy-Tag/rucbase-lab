@@ -26,6 +26,7 @@ class TestCaseAnalyzer {
 public:
     TestCaseAnalyzer() {
         permutation = new OperationPermutation();
+        operation_map.clear();
     }
     void analyze_operation(Operation* operation, const std::string& operation_line);
     void analyze_test_case();

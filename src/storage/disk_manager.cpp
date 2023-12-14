@@ -121,12 +121,13 @@ void DiskManager::create_file(const std::string &path) {
  * @description: 删除指定路径的文件
  * @param {string} &path 文件所在路径
  */
-void DiskManager::destroy_file(const std::string &path) {
+int DiskManager::destroy_file(const std::string &path) {
     // Todo:
     // 调用unlink()函数
     // 注意不能删除未关闭的文件
     if (unlink(path.c_str()) == -1)
         throw FileNotFoundError("DiskManager::create_file Error - File destroying failed");
+    return path2fd_[path];
 }
 
 

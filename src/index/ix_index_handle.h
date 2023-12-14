@@ -170,6 +170,16 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         return map_[key];
     }
+
+    void erase(const Key& key) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        map_.erase(key);
+    }
+
+    void clear(){
+        std::lock_guard<std::mutex> lock(mutex_);
+        return map_.clear();
+    }
 };
 
 /* B+树 */

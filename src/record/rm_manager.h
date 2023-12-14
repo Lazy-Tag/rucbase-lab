@@ -30,8 +30,8 @@ class RmManager {
      * @description: 创建表的数据文件并初始化相关信息
      * @param {string&} filename 要创建的文件名称
      * @param {int} record_size 表中记录的大小
-     */ 
-    void create_file(const std::string& filename, int record_size) {
+     */
+    int create_file(const std::string& filename, int record_size) {
         if (record_size < 1 || record_size > RM_MAX_RECORD_SIZE) {
             throw InvalidRecordSizeError(record_size);
         }
@@ -52,13 +52,15 @@ class RmManager {
         // head page直接写入磁盘，没有经过缓冲区的NewPage，那么也就不需要FlushPage
         disk_manager_->write_page(fd, RM_FILE_HDR_PAGE, (char *)&file_hdr, sizeof(file_hdr));
         disk_manager_->close_file(fd);
+
+        return fd;
     }
 
     /**
      * @description: 删除表的数据文件
      * @param {string&} filename 要删除的文件名称
      */    
-    void destroy_file(const std::string& filename) { disk_manager_->destroy_file(filename); }
+    int destroy_file(const std::string& filename) { return disk_manager_->destroy_file(filename); }
 
     // 注意这里打开文件，创建并返回了record file handle的指针
     /**
@@ -79,6 +81,5 @@ class RmManager {
                                   sizeof(file_handle->file_hdr_));
         // 缓冲区的所有页刷到磁盘，注意这句话必须写在close_file前面
         buffer_pool_manager_->flush_all_pages(file_handle->fd_);
-        disk_manager_->close_file(file_handle->fd_);
     }
 };

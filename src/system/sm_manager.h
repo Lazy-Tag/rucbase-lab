@@ -10,13 +10,16 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "common/context.h"
 #include "index/ix.h"
+#include "record/rm.h"
 #include "record/rm_file_handle.h"
+#include "record/rm_manager.h"
 #include "sm_defs.h"
 #include "sm_meta.h"
-#include "common/context.h"
 
 class Context;
+class RmManager;
 
 struct ColDef {
     std::string name;  // Column name

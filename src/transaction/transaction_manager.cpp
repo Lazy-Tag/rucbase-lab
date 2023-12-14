@@ -26,8 +26,13 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
     // 2. 如果为空指针，创建新事务
     // 3. 把开始事务加入到全局事务表中
     // 4. 返回当前事务指针
+    if (!txn) {
+        txn = new Transaction( ++ next_txn_id_) ;
+        txn->set_start_ts( ++ next_timestamp_);
+        txn_map[next_txn_id_] = txn;
+    }
     
-    return nullptr;
+    return txn;
 }
 
 /**
@@ -42,7 +47,21 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // 3. 释放事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
+    if (!txn) return ;
+    auto write_set = txn->get_write_set();
+    if (!write_set->empty()) {
+        for (auto& write_record : *write_set) {
+            delete write_record;
+        }
+        write_set->clear();
+    }
 
+    auto lock_set = txn->get_lock_set();
+    for (const auto& lock_id : *lock_set) {
+        lock_manager_->unlock(txn, lock_id);
+    }
+    log_manager->flush_log_to_disk();
+    txn->set_state(TransactionState::COMMITTED);
 }
 
 /**
@@ -57,5 +76,33 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
     // 3. 清空事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
-    
+    if (!txn) return ;
+
+    auto write_set = txn->get_write_set();
+    std::reverse(write_set->begin(), write_set->end());
+    auto context = new Context(lock_manager_, log_manager, txn);
+    for (const auto& write_record : *write_set) {
+        auto type = write_record->GetWriteType();
+        auto tab_name = write_record->GetTableName();
+        auto fh = sm_manager_->fhs_.at(tab_name).get();
+        switch (type) {
+            case WType::INSERT_TUPLE:
+                fh->delete_record(write_record->GetRid(), context);
+                break;
+            case WType::DELETE_TUPLE:
+                fh->insert_record(write_record->GetRecord().data, context);
+                break;
+            case WType::UPDATE_TUPLE:
+                fh->update_record(write_record->GetRid(), write_record->GetRecord().data, context);
+                break;
+        }
+    }
+    delete context;
+    write_set->clear();
+    auto lock_set = txn->get_lock_set();
+    for (const auto& lock_id : *lock_set) {
+        lock_manager_->unlock(txn, lock_id);
+    }
+    log_manager->flush_log_to_disk();
+    txn->set_state(TransactionState::ABORTED);
 }

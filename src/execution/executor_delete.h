@@ -23,7 +23,7 @@ class DeleteExecutor : public AbstractExecutor {
     std::vector<Rid> rids_;         // 需要删除的记录的位置
     std::string tab_name_;          // 表名称
     SmManager *sm_manager_;
-    int len_;
+    int len_ = 0;
 
    public:
     DeleteExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<Condition> conds,
@@ -40,12 +40,16 @@ class DeleteExecutor : public AbstractExecutor {
     }
 
     std::unique_ptr<RmRecord> Next() override {
+        char* buf = new char[len_ + 1];
         for (const auto& rid : rids_) {
             auto page_handle = fh_->fetch_page_handle(rid.page_no);
-            char* buf = new char[len_ + 1];
             memcpy(buf, page_handle.get_slot(rid.slot_no), len_);
+            auto record = RmRecord(len_, buf);
 
-            fh_->delete_record(rid, context_);
+            if (!fh_->delete_record(rid, context_)) {
+                delete[] buf;
+                throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
+            }
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
@@ -57,8 +61,11 @@ class DeleteExecutor : public AbstractExecutor {
                 }
                 ih->delete_entry(key, context_->txn_);
             }
-        }
 
+            auto write_record = new WriteRecord(WType::DELETE_TUPLE, tab_name_, rid, record);
+            context_->txn_->append_write_record(write_record);
+        }
+        delete[] buf;
         return nullptr;
     }
 

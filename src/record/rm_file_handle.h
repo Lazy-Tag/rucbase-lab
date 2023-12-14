@@ -79,13 +79,15 @@ class RmFileHandle {
 
     void insert_record(const Rid &rid, char *buf);
 
-    void delete_record(const Rid &rid, Context *context);
+    bool delete_record(const Rid &rid, Context *context);
 
-    void update_record(const Rid &rid, char *buf, Context *context);
+    bool update_record(const Rid &rid, char *buf, Context *context);
 
     RmPageHandle create_new_page_handle();
 
     RmPageHandle fetch_page_handle(int page_no) const;
+
+    bool getRecord(char *buf, const Rid &rid, Context *context, int len);
 
    private:
     RmPageHandle create_page_handle();

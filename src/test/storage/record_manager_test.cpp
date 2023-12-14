@@ -125,7 +125,7 @@ TEST(RecordManagerTest, SimpleTest) {
         double dice = rand() * 1. / RAND_MAX;
         if (mock.empty() || dice < insert_prob) {
             rand_buf(file_handle->file_hdr_.record_size, write_buf);
-            Rid rid = file_handle->insert_record(write_buf, context);
+            Rid rid = file_handle->insert_record(write_buf, Context(nullptr, nullptr, nullptr));
             mock[rid] = std::string((char *)write_buf, file_handle->file_hdr_.record_size);
             add_cnt++;
 //                        std::cout << "insert " << rid << '\n'; // operator<<(cout,rid)
@@ -140,13 +140,13 @@ TEST(RecordManagerTest, SimpleTest) {
             if (rand() % 2 == 0) {
                 // update
                 rand_buf(file_handle->file_hdr_.record_size, write_buf);
-                file_handle->update_record(rid, write_buf, context);
+                file_handle->update_record(rid, write_buf, nullptr);
                 mock[rid] = std::string((char *)write_buf, file_handle->file_hdr_.record_size);
                 upd_cnt++;
                 //                std::cout << "update " << rid << '\n';
             } else {
                 // erase
-                file_handle->delete_record(rid, context);
+                file_handle->delete_record(rid, nullptr);
                 mock.erase(rid);
                 del_cnt++;
                 //                std::cout << "delete " << rid << '\n';

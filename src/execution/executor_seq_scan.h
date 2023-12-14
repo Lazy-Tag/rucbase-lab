@@ -50,9 +50,9 @@ class SeqScanExecutor : public AbstractExecutor {
     }
 
     std::vector<Value> constructVal() {
-        auto page_handle = fh_->fetch_page_handle(rid_.page_no);
         char *buf = new char[len_ + 1];
-        memcpy(buf, page_handle.get_slot(rid_.slot_no), len_);
+        if (!fh_->getRecord(buf, rid_, context_, len_))
+            throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
         Value val;
         std::vector<Value> vec;
         for (const auto &col : cols_) {

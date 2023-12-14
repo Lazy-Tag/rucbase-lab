@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <iostream>
 
 void TestCaseAnalyzer::analyze_operation(Operation* operation, const std::string& operation_line) {
     operation->name = operation_line.substr(0, operation_line.find(" "));
@@ -50,6 +51,9 @@ void TestCaseAnalyzer::analyze_test_case() {
             while(count) {
                 --count;
                 std::getline(infile, line);
+                if (line.size() > 0 && line[line.size() - 1] == '\r') {
+                    line.pop_back();
+                }
                 if(strcmp(line.c_str(), "crash") == 0) {
                     // permutation->operations.push_back(crash_operation);
                     break;

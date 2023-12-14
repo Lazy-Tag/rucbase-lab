@@ -52,7 +52,7 @@ class DiskManager {
 
     void create_file(const std::string &path);
 
-    void destroy_file(const std::string &path);
+    int destroy_file(const std::string &path);
 
     int open_file(const std::string &path);
 
@@ -88,6 +88,8 @@ class DiskManager {
     page_id_t get_fd2pageno(int fd) { return fd2pageno_[fd]; }
 
     static constexpr int MAX_FD = 8192;
+
+    int get_fd2path(const std::string& path) { return path2fd_[path]; }
 
    private:
     // 文件打开列表，用于记录文件是否被打开
