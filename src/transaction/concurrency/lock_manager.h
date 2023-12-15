@@ -47,7 +47,28 @@ class Set {
     }
 };
 
+struct Hash_t {
+    size_t operator()(const std::pair<txn_id_t, std::string>& pair) const {
+        size_t hash1 = std::hash<txn_id_t>{}(pair.first);
+        size_t hash2 = std::hash<std::string>{}(pair.second);
+        return hash1 ^ (hash2 << 1);
+    }
+};
+
+namespace std {
+    template <>
+    struct hash<std::pair<txn_id_t, std::string>> {
+        size_t operator()(const std::pair<txn_id_t, std::string>& pair) const {
+            Hash_t customHash;
+            return customHash(pair);
+        }
+    };
+}
+
 class LockManager {
+    friend class RmFileHandle;
+    friend class SeqScanExecutor;
+    friend class TransactionManager;
     /* 加锁类型，包括共享锁、排他锁、意向共享锁、意向排他锁、SIX（意向排他锁+共享锁） */
     enum class LockMode { SHARED, EXLUCSIVE, INTENTION_SHARED, INTENTION_EXCLUSIVE, S_IX };
 
@@ -63,9 +84,9 @@ class LockManager {
     };
 
    public:
-    LockManager() {}
+    LockManager() = default;
 
-    ~LockManager() {}
+    ~LockManager() = default;
 
     bool lock_shared_on_record(Transaction* txn, const Rid& rid, int tab_fd);
 
@@ -85,4 +106,5 @@ class LockManager {
     HashMap<LockDataId, std::pair<std::shared_mutex*, txn_id_t>> lock_table_;  // 全局锁表
     HashMap<LockDataId, TableLockMode> lock_mode_table_;
     HashMap<int, TableModeSet> tab_mode_table_;
+    HashMap<int, HashMap<std::pair<txn_id_t, std::string>, std::vector<Range>, Hash_t>> gap_lock;
 };

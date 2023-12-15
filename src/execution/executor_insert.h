@@ -17,11 +17,11 @@ See the Mulan PSL v2 for more details. */
 
 class InsertExecutor : public AbstractExecutor {
    private:
-    TabMeta tab_;                   // 表的元数据
-    std::vector<Value> values_;     // 需要插入的数据
-    RmFileHandle *fh_;              // 表的数据文件句柄
-    std::string tab_name_;          // 表名称
-    Rid rid_;                       // 插入的位置，由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
+    TabMeta tab_;                // 表的元数据
+    std::vector<Value> values_;  // 需要插入的数据
+    RmFileHandle *fh_;           // 表的数据文件句柄
+    std::string tab_name_;       // 表名称
+    Rid rid_;  // 插入的位置，由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
     SmManager *sm_manager_;
 
    public:
@@ -51,12 +51,20 @@ class InsertExecutor : public AbstractExecutor {
         }
         // Insert into record file
         rid_ = fh_->insert_record(rec.data, context_);
-        if (rid_.page_no == -1) {
+        if (values_[0].int_val == 3) {
+            puts("****");
+        }
+        bool flag = fh_->checkGapLock(tab_.cols, values_, context_);
+        if (rid_.page_no == -1 || !flag) {
+            if (!flag) {
+                auto write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
+                context_->txn_->append_write_record(write_record);
+            }
             throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
         }
-        
+
         // Insert into index
-        for(size_t i = 0; i < tab_.indexes.size(); ++i) {
+        for (size_t i = 0; i < tab_.indexes.size(); ++i) {
             auto &index = tab_.indexes[i];
             auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
             char *key = new char[index.col_tot_len];

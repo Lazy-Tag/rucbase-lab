@@ -23,7 +23,7 @@ enum class TransactionState { DEFAULT, GROWING, SHRINKING, COMMITTED, ABORTED };
 enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED, SERIALIZABLE };
 
 /* 事务写操作类型，包括插入、删除、更新三种操作 */
-enum class WType { INSERT_TUPLE = 0, DELETE_TUPLE, UPDATE_TUPLE};
+enum class WType { INSERT_TUPLE = 0, DELETE_TUPLE, UPDATE_TUPLE };
 
 /**
  * @brief 事务的写操作记录，用于事务的回滚
@@ -152,3 +152,20 @@ class TransactionAbortException : public std::exception {
         }
     }
 };
+
+struct Range {
+    Range() = default;
+    Range(const ColType& colType) : type(colType) {}
+
+    ColType type;
+    union {
+        int int_lval;
+        float float_lval;
+    };
+    union {
+        int int_rval;
+        float float_rval;
+    };
+    std::string str_lval, str_rval;
+};
+

@@ -15,9 +15,9 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <string>
 #include <vector>
+
 #include "defs.h"
 #include "record/rm_defs.h"
-
 
 struct TabCol {
     std::string tab_name;
@@ -29,14 +29,13 @@ struct TabCol {
 };
 
 struct Value {
-    ColType type;  // type of value
-    union {
-        int int_val;      // int value
-        float float_val;  // float value
-    };
+    ColType type;         // type of value
+    int int_val;          // int value
+    float float_val;      // float value
     std::string str_val;  // string value
 
     std::shared_ptr<RmRecord> raw;  // raw record buffer
+    bool is_min = false, is_max = false;
 
     void set_int(int int_val_) {
         type = TYPE_INT;

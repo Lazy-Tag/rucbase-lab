@@ -31,7 +31,6 @@ bool LockManager::lock_shared_on_record(Transaction* txn, const Rid& rid, int ta
     lock_mode_table_[lock_id] = TableLockMode::IS;
 
     bool flag = mtx->try_lock_shared();
-    printf("%d %d %d\n", flag, txn->get_transaction_id(), txn_id);
     if (flag) txn->append_lock_set(lock_id);
     return flag || txn->get_transaction_id() == txn_id;
 }

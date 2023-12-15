@@ -11,13 +11,15 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <assert.h>
-
-#include <memory>
 #include <error.h>
 
+#include <memory>
+
 #include "bitmap.h"
+#include "common/common.h"
 #include "common/context.h"
 #include "rm_defs.h"
+#include "system/sm_meta.h"
 
 class RmManager;
 
@@ -89,8 +91,11 @@ class RmFileHandle {
 
     bool getRecord(char *buf, const Rid &rid, Context *context, int len);
 
+    bool checkGapLock(std::vector<ColMeta>& cols, std::vector<Value>& values, Context *context);
    private:
+    bool checkVal(Range& rg, Value& val);
     RmPageHandle create_page_handle();
 
     void release_page_handle(RmPageHandle &page_handle);
+    int checkStr(std::string basicString, std::string basicString1);
 };

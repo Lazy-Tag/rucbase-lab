@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 
 enum class Operation { FIND = 0, INSERT, DELETE };  // 三种操作：查找、插入、删除
 
+class Transaction;
+
 static const bool binary_search = false;
 
 inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
@@ -36,11 +38,12 @@ inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
     }
 }
 
-inline int ix_compare(const char* a, const char* b, const std::vector<ColType>& col_types, const std::vector<int>& col_lens) {
+inline int ix_compare(const char *a, const char *b, const std::vector<ColType> &col_types,
+                      const std::vector<int> &col_lens) {
     int offset = 0;
-    for(size_t i = 0; i < col_types.size(); ++i) {
+    for (size_t i = 0; i < col_types.size(); ++i) {
         int res = ix_compare(a + offset, b + offset, col_types[i], col_lens[i]);
-        if(res != 0) return res;
+        if (res != 0) return res;
         offset += col_lens[i];
     }
     return 0;
@@ -159,26 +162,72 @@ class IxNodeHandle {
     }
 };
 
-template <typename Key, typename Value>
+template <typename Key, typename Value, typename Hash = std::hash<Key>>
 class HashMap {
-private:
-    std::unordered_map<Key, Value> map_;
+    class Iterator {
+        friend class HashMap;
+       private:
+        typename std::unordered_map<Key, Value, Hash>::iterator it_;
+
+       public:
+        explicit Iterator(typename std::unordered_map<Key, Value, Hash>::iterator it) : it_(it) {}
+
+        Iterator &operator++() {
+            ++it_;
+            return *this;
+        }
+
+        std::pair<const Key, Value> &operator*() { return *it_; }
+
+        bool operator!=(const Iterator &other) const { return it_ != other.it_; }
+    };
+
+   private:
+    std::unordered_map<Key, Value, Hash> map_;
     std::mutex mutex_;
 
-public:
-    Value& operator[](const Key& key) {
+   public:
+    HashMap() : mutex_(std::mutex()) {}
+
+    template <typename Predicate>
+    Iterator find_if(Predicate pred) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto it = map_.begin(); it != map_.end(); ++it) {
+            if (pred(*it)) {
+                return Iterator(it);
+            }
+        }
+        return Iterator(map_.end());
+    }
+
+    Value &operator[](const Key &key) {
         std::lock_guard<std::mutex> lock(mutex_);
         return map_[key];
     }
 
-    void erase(const Key& key) {
+    void erase(const Key &key) {
         std::lock_guard<std::mutex> lock(mutex_);
         map_.erase(key);
     }
 
-    void clear(){
+    void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         return map_.clear();
+    }
+
+    void erase(Iterator iter) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        map_.erase(iter.it_);
+    }
+
+    Iterator begin() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return Iterator(map_.begin());
+    }
+
+    Iterator end() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return Iterator(map_.end());
     }
 };
 
@@ -190,17 +239,17 @@ class IxIndexHandle {
    private:
     DiskManager *disk_manager_;
     BufferPoolManager *buffer_pool_manager_;
-    int fd_;                                    // 存储B+树的文件
-    IxFileHdr* file_hdr_;                       // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
-    HashMap<int, std::shared_mutex*> node_mutex;
+    int fd_;               // 存储B+树的文件
+    IxFileHdr *file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
+    HashMap<int, std::shared_mutex *> node_mutex;
 
-    void write_lock(IxNodeHandle* node) { node_mutex[node->get_page_no()]->lock(); }
+    void write_lock(IxNodeHandle *node) { node_mutex[node->get_page_no()]->lock(); }
 
-    void write_unlock(IxNodeHandle* node) { node_mutex[node->get_page_no()]->unlock(); }
+    void write_unlock(IxNodeHandle *node) { node_mutex[node->get_page_no()]->unlock(); }
 
-    void read_lock(IxNodeHandle* node) { node_mutex[node->get_page_no()]->lock_shared(); }
+    void read_lock(IxNodeHandle *node) { node_mutex[node->get_page_no()]->lock_shared(); }
 
-    void read_unlock(IxNodeHandle* node) { node_mutex[node->get_page_no()]->unlock_shared(); }
+    void read_unlock(IxNodeHandle *node) { node_mutex[node->get_page_no()]->unlock_shared(); }
 
    public:
     IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
@@ -221,7 +270,7 @@ class IxIndexHandle {
     bool delete_entry(const char *key, Transaction *transaction);
 
     bool coalesce_or_redistribute(IxNodeHandle *node, Transaction *transaction = nullptr);
-    bool adjust_root(IxNodeHandle *old_root_node, Transaction* transaction);
+    bool adjust_root(IxNodeHandle *old_root_node, Transaction *transaction);
 
     void redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node, IxNodeHandle *parent, int index);
 

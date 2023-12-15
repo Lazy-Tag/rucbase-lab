@@ -25,6 +25,7 @@ class SeqScanExecutor : public AbstractExecutor {
     size_t len_;                        // scan后生成的每条记录的长度
     std::vector<Condition> fed_conds_;  // 同conds_，两个字段相同
 
+    int fd_;
     Rid rid_;
     std::unique_ptr<RecScan> scan_;  // table_iterator
 
@@ -42,12 +43,12 @@ class SeqScanExecutor : public AbstractExecutor {
 
         context_ = context;
 
+        fd_ = fh_->GetFd();
         fed_conds_ = conds_;
+        addGapLock(conds_, context_, cols_);
     }
 
-    RmFileHandle* getFileHandle() const override {
-        return fh_;
-    }
+    RmFileHandle *getFileHandle() const override { return fh_; }
 
     std::vector<Value> constructVal() {
         char *buf = new char[len_ + 1];
@@ -80,7 +81,7 @@ class SeqScanExecutor : public AbstractExecutor {
     bool satisfyCond() {
         auto values = constructVal();
         bool flag = true;
-        for (auto cond : conds_) {
+        for (const auto &cond : conds_) {
             auto condition = cond.op;
             auto col_name = cond.lhs_col.col_name;
             int index = std::distance(cols_.begin(), std::find_if(cols_.begin(), cols_.end(),
@@ -165,4 +166,74 @@ class SeqScanExecutor : public AbstractExecutor {
     std::string getType() { return "SeqScanExecutor"; };
 
     Rid &rid() override { return rid_; }
+
+    void addGapLock(const std::vector<Condition> &conds, Context *context, const std::vector<ColMeta> &cols) {
+        auto &gap_lock = context->lock_mgr_->gap_lock[fd_];
+        auto txn_id = context->txn_->get_transaction_id();
+
+        Value minv, maxv;
+        minv.is_min = maxv.is_max = true;
+        minv.int_val = INT32_MIN, minv.float_val = -1e9, minv.str_val = std::string(20, 0);
+        minv.int_val = INT32_MAX, minv.float_val = 1e9, minv.str_val = std::string(20, 127);
+        HashMap<std::string, int> is_cond;
+        for (const auto &cond : conds) {
+            auto condition = cond.op;
+            auto col_name = cond.lhs_col.col_name;
+            is_cond[col_name] = 1;
+            auto &vec = gap_lock[{txn_id, col_name}];
+            auto val = cond.rhs_val;
+            switch (condition) {
+                case OP_EQ:
+                    append_lock(vec, val, val);
+                    break;
+                case OP_NE:
+                    append_lock(vec, minv, maxv);
+                    break;
+                case OP_LT:
+                    append_lock(vec, minv, val);
+                    break;
+                case OP_LE:
+                    append_lock(vec, minv, val);
+                    break;
+                case OP_GT:
+                    append_lock(vec, val, maxv);
+                    break;
+                case OP_GE:
+                    append_lock(vec, val, maxv);
+                    break;
+            }
+        }
+
+        for (const auto &col : cols) {
+            auto col_name = col.name;
+            auto &vec = gap_lock[{txn_id, col_name}];
+            if (!is_cond[col_name]) append_lock(vec, maxv, minv);
+            auto &rg = vec.back();
+            rg.type = col.type;
+        }
+    }
+
+    void append_lock(std::vector<Range> &vec, Value &lv, Value &rv) {
+        ColType type;
+        if (lv.is_max || lv.is_min)
+            type = rv.type;
+        else
+            type = lv.type;
+        Range rg(type);
+        switch (type) {
+            case TYPE_INT:
+                rg.int_lval = lv.int_val;
+                rg.int_rval = rv.int_val;
+                break;
+            case TYPE_FLOAT:
+                rg.float_lval = lv.float_val;
+                rg.float_rval = rv.float_val;
+                break;
+            case TYPE_STRING:
+                rg.str_lval = lv.str_val;
+                rg.str_lval = rv.str_val;
+                break;
+        }
+        vec.emplace_back(rg);
+    }
 };

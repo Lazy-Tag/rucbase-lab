@@ -71,4 +71,5 @@ private:
     std::mutex latch_;  // 用于txn_map的并发
     SmManager *sm_manager_;
     LockManager *lock_manager_;
+    void eraseGapLock(Transaction* txn);
 };
