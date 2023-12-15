@@ -199,7 +199,8 @@ void SmManager::create_table(const std::string& tab_name, const std::vector<ColD
     // Create & open record file
     int record_size = curr_offset;  // record_size就是col meta所占的大小（表的元数据也是以记录的形式进行存储的）
     int fd = rm_manager_->create_file(tab_name, record_size);
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fd);
+    if (context)
+        context->lock_mgr_->lock_exclusive_on_table(context->txn_, fd);
     db_.tabs_[tab_name] = tab;
     // fhs_[tab_name] = rm_manager_->open_file(tab_name);
     fhs_.emplace(tab_name, rm_manager_->open_file(tab_name));
@@ -232,14 +233,21 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
  * @param {Context*} context
  */
 void SmManager::create_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
-    auto tab_meta = db_.get_table(tab_name);
-    std::vector<ColMeta> col_meta;
+    auto& tab_meta = db_.get_table(tab_name);
+    IndexMeta index_meta = {tab_name};
+    std::vector<ColMeta> &col_meta = index_meta.cols;
     for (auto& col : col_names) {
         auto it = tab_meta.get_col(col);
         col_meta.push_back(*it);
+        index_meta.col_tot_len += it->len;
+        index_meta.col_num ++ ;
     }
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, disk_manager_->get_fd2path(tab_name));
+    if (context && !context->lock_mgr_->lock_exclusive_on_table(context->txn_, disk_manager_->get_fd2path(tab_name)))
+        throw TransactionAbortException(context->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
     ix_manager_->create_index(tab_name, col_meta);
+    tab_meta.indexes.push_back(index_meta);
+    ihs_[ix_manager_->get_index_name(tab_name, col_meta)]
+        = ix_manager_->open_index(tab_name, col_meta);
 }
 
 /**

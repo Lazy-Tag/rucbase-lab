@@ -87,16 +87,72 @@ void TransactionManager::abort(Transaction* txn, LogManager* log_manager) {
         auto type = write_record->GetWriteType();
         auto tab_name = write_record->GetTableName();
         auto fh = sm_manager_->fhs_.at(tab_name).get();
+        auto tab = sm_manager_->db_.get_table(write_record->GetTableName());
+        auto buf = write_record->GetRecord().data;
+        int len = tab.cols.back().offset + tab.cols.back().len;
+        char old_buf[len + 1];
+        fh->getRecord(old_buf, write_record->GetRid(), context, len, false);
         switch (type) {
-            case WType::INSERT_TUPLE:
+            case WType::INSERT_TUPLE: {
                 fh->delete_record(write_record->GetRid(), context);
+                for (size_t i = 0; i < tab.indexes.size(); ++i) {
+                    auto& index = tab.indexes[i];
+                    auto ih =
+                        sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab.name, index.cols)).get();
+                    char* key = new char[index.col_tot_len];
+                    int offset = 0;
+                    for (size_t j = 0; j < index.col_num; ++j) {
+                        memcpy(key + offset, buf + index.cols[j].offset, index.cols[j].len);
+                        offset += index.cols[j].len;
+                    }
+                    ih->delete_entry(key, txn);
+                }
                 break;
-            case WType::DELETE_TUPLE:
+            }
+            case WType::DELETE_TUPLE: {
                 fh->insert_record(write_record->GetRecord().data, context);
+                for (size_t i = 0; i < tab.indexes.size(); ++i) {
+                    auto& index = tab.indexes[i];
+                    auto ih =
+                        sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab.name, index.cols)).get();
+                    char* key = new char[index.col_tot_len];
+                    int offset = 0;
+                    for (size_t j = 0; j < index.col_num; ++j) {
+                        memcpy(key + offset, old_buf + index.cols[j].offset, index.cols[j].len);
+                        offset += index.cols[j].len;
+                    }
+                    ih->insert_entry(key, write_record->GetRid(), txn);
+                }
                 break;
-            case WType::UPDATE_TUPLE:
+            }
+            case WType::UPDATE_TUPLE: {
+                for (size_t i = 0; i < tab.indexes.size(); ++i) {
+                    auto& index = tab.indexes[i];
+                    auto ih =
+                        sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab.name, index.cols)).get();
+                    char* key = new char[index.col_tot_len];
+                    int offset = 0;
+                    for (size_t j = 0; j < index.col_num; ++j) {
+                        memcpy(key + offset, buf + index.cols[j].offset, index.cols[j].len);
+                        offset += index.cols[j].len;
+                    }
+                    ih->delete_entry(key, txn);
+                }
                 fh->update_record(write_record->GetRid(), write_record->GetRecord().data, context);
+                for (size_t i = 0; i < tab.indexes.size(); ++i) {
+                    auto& index = tab.indexes[i];
+                    auto ih =
+                        sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab.name, index.cols)).get();
+                    char* key = new char[index.col_tot_len];
+                    int offset = 0;
+                    for (size_t j = 0; j < index.col_num; ++j) {
+                        memcpy(key + offset, old_buf + index.cols[j].offset, index.cols[j].len);
+                        offset += index.cols[j].len;
+                    }
+                    ih->delete_entry(key, txn);
+                }
                 break;
+            }
         }
     }
     delete context;

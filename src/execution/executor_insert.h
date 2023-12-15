@@ -50,16 +50,9 @@ class InsertExecutor : public AbstractExecutor {
             memcpy(rec.data + col.offset, val.raw->data, col.len);
         }
         // Insert into record file
-        rid_ = fh_->insert_record(rec.data, context_);
-        if (values_[0].int_val == 3) {
-            puts("****");
-        }
         bool flag = fh_->checkGapLock(tab_.cols, values_, context_);
-        if (rid_.page_no == -1 || !flag) {
-            if (!flag) {
-                auto write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
-                context_->txn_->append_write_record(write_record);
-            }
+        if (flag) rid_ = fh_->insert_record(rec.data, context_);
+        if (!flag || rid_.page_no == -1) {
             throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
         }
 

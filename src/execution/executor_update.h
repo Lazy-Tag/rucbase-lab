@@ -73,7 +73,27 @@ class UpdateExecutor : public AbstractExecutor {
                 }
             }
 
-            if (!fh_->update_record(rid, buf, context_)) {
+            std::vector<Value> values;
+            for (const auto &col : tab_.cols) {
+                Value val;
+                char dest[col.len + 1];
+                memcpy(dest, old_buf + col.offset, col.len);
+                dest[col.len] = '\0';
+                val.type = col.type;
+                switch (col.type) {
+                    case TYPE_INT:
+                        val.set_int(*(int *)dest);
+                        break;
+                    case TYPE_FLOAT:
+                        val.set_float(*(float *)dest);
+                        break;
+                    case TYPE_STRING:
+                        val.set_str(dest);
+                        break;
+                }
+                values.emplace_back(val);
+            }
+            if (!fh_->checkGapLock(tab_.cols, values, context_) || !fh_->update_record(rid, buf, context_)) {
                 delete[] buf;
                 delete[] old_buf;
                 throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);

@@ -17,13 +17,15 @@ See the Mulan PSL v2 for more details. */
 #include "system/sm.h"
 
 class SeqScanExecutor : public AbstractExecutor {
-   private:
+   protected:
     std::string tab_name_;              // 表的名称
     std::vector<Condition> conds_;      // scan的条件
     RmFileHandle *fh_;                  // 表的数据文件句柄
     std::vector<ColMeta> cols_;         // scan后生成的记录的字段
     size_t len_;                        // scan后生成的每条记录的长度
     std::vector<Condition> fed_conds_;  // 同conds_，两个字段相同
+    TabMeta tab_;
+    bool is_read;
 
     int fd_;
     Rid rid_;
@@ -32,27 +34,29 @@ class SeqScanExecutor : public AbstractExecutor {
     SmManager *sm_manager_;
 
    public:
-    SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context) {
+    SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context, bool read) {
         sm_manager_ = sm_manager;
         tab_name_ = std::move(tab_name);
         conds_ = std::move(conds);
-        TabMeta &tab = sm_manager_->db_.get_table(tab_name_);
+        tab_ = sm_manager_->db_.get_table(tab_name_);
         fh_ = sm_manager_->fhs_.at(tab_name_).get();
-        cols_ = tab.cols;
+        cols_ = tab_.cols;
         len_ = cols_.back().offset + cols_.back().len;
 
         context_ = context;
 
         fd_ = fh_->GetFd();
         fed_conds_ = conds_;
-        addGapLock(conds_, context_, cols_);
+        is_read = read;
+        if (is_read)
+            addGapLock(conds_, context_, cols_);
     }
 
     RmFileHandle *getFileHandle() const override { return fh_; }
 
-    std::vector<Value> constructVal() {
+    std::vector<Value> constructVal() override {
         char *buf = new char[len_ + 1];
-        if (!fh_->getRecord(buf, rid_, context_, len_))
+        if (!fh_->getRecord(buf, rid_, context_, len_, is_read))
             throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
         Value val;
         std::vector<Value> vec;
@@ -190,14 +194,10 @@ class SeqScanExecutor : public AbstractExecutor {
                     append_lock(vec, minv, maxv);
                     break;
                 case OP_LT:
-                    append_lock(vec, minv, val);
-                    break;
                 case OP_LE:
                     append_lock(vec, minv, val);
                     break;
                 case OP_GT:
-                    append_lock(vec, val, maxv);
-                    break;
                 case OP_GE:
                     append_lock(vec, val, maxv);
                     break;

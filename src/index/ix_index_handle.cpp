@@ -59,7 +59,7 @@ int IxNodeHandle::upper_bound(const char *target) const {
  * @param[out] value 传出参数，目标key对应的Rid
  * @return 目标key是否存在
  */
-bool IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
+std::pair<bool, int> IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
     // Todo:
     // 1. 在叶子节点中获取目标key所在位置
     // 2. 判断目标key是否存在
@@ -68,9 +68,9 @@ bool IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
     int idx = lower_bound(key);
     if (idx != page_hdr->num_key && !ix_compare(key, get_key(idx), file_hdr->col_types_, file_hdr->col_lens_)) {
         *value = get_rid(idx);
-        return true;
+        return {true, idx};
     }
-    return false;
+    return {false, idx};
 }
 
 /**
@@ -291,12 +291,51 @@ bool IxIndexHandle::get_value(const char *key, std::vector<Rid> *result, Transac
     // 提示：使用完buffer_pool提供的page之后，记得unpin page；记得处理并发的上锁
     auto leaf_node = find_leaf_page(key, Operation::FIND, transaction);
     Rid **value = new Rid*();
-    if (!leaf_node->leaf_lookup(key, value)) {
+    if (!leaf_node->leaf_lookup(key, value).first) {
         read_unlock(leaf_node);
         return false;
     }
     read_unlock(leaf_node);
     result->push_back(**value);
+    buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
+    return true;
+}
+
+
+bool IxIndexHandle::range_query(const char *lk, const char* rk, std::vector<Rid> *result, Transaction *transaction, bool le, bool ge) {
+    auto leaf_node = find_leaf_page(lk, Operation::FIND, transaction);
+    Rid **value = new Rid*();
+    int idx = leaf_node->leaf_lookup(lk, value).second;
+    if (idx == leaf_node->page_hdr->num_key) {
+        read_unlock(leaf_node);
+        return false;
+    }
+    if (!le && !ix_compare(leaf_node->get_key(idx), lk, file_hdr_->col_types_, file_hdr_->col_lens_)){
+        idx ++ ;
+        if (idx == leaf_node->get_max_size()) {
+            if (leaf_node->get_page_id().page_no == file_hdr_->last_leaf_)
+                    return false;
+            idx = 0;
+            read_unlock(leaf_node);
+            buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
+            leaf_node = fetch_node(leaf_node->get_next_leaf());
+            read_lock(leaf_node);
+        }
+    }
+    while (ix_compare(leaf_node->get_key(idx), rk, file_hdr_->col_types_, file_hdr_->col_lens_) <= -(!ge)) {
+        result->push_back(*leaf_node->get_rid(idx));
+        idx ++ ;
+        if (idx == leaf_node->get_max_size()) {
+            if (leaf_node->get_page_id().page_no == file_hdr_->last_leaf_)
+                    break;
+            idx = 0;
+            read_unlock(leaf_node);
+            buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
+            leaf_node = fetch_node(leaf_node->get_next_leaf());
+            read_lock(leaf_node);
+        }
+    }
+    read_unlock(leaf_node);
     buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
     return true;
 }

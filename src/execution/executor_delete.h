@@ -35,27 +35,48 @@ class DeleteExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
-        for (const auto& col : tab_.cols)
-            len_ += col.len;
+        for (const auto &col : tab_.cols) len_ += col.len;
     }
 
     std::unique_ptr<RmRecord> Next() override {
-        char* buf = new char[len_ + 1];
-        for (const auto& rid : rids_) {
+        char *buf = new char[len_ + 1];
+        for (const auto &rid : rids_) {
             auto page_handle = fh_->fetch_page_handle(rid.page_no);
             memcpy(buf, page_handle.get_slot(rid.slot_no), len_);
             auto record = RmRecord(len_, buf);
 
-            if (!fh_->delete_record(rid, context_)) {
+            std::vector<Value> values;
+            for (const auto &col : tab_.cols) {
+                Value val;
+                char dest[col.len + 1];
+                memcpy(dest, buf + col.offset, col.len);
+                dest[col.len] = '\0';
+                val.type = col.type;
+                switch (col.type) {
+                    case TYPE_INT:
+                        val.set_int(*(int *)dest);
+                        break;
+                    case TYPE_FLOAT:
+                        val.set_float(*(float *)dest);
+                        break;
+                    case TYPE_STRING:
+                        val.set_str(dest);
+                        break;
+                }
+                values.emplace_back(val);
+            }
+            if (!fh_->checkGapLock(tab_.cols, values, context_) || !fh_->delete_record(rid, context_)) {
                 delete[] buf;
                 throw TransactionAbortException(context_->txn_->get_transaction_id(), AbortReason::LOCK_ON_SHIRINKING);
             }
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto& index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                char* key = new char[index.col_tot_len];
+
+            for (size_t i = 0; i < tab_.indexes.size(); ++i) {
+                auto &index = tab_.indexes[i];
+                auto ih =
+                    sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
+                char *key = new char[index.col_tot_len];
                 int offset = 0;
-                for(size_t j = 0; j < index.col_num; ++j) {
+                for (size_t j = 0; j < index.col_num; ++j) {
                     memcpy(key + offset, buf + index.cols[j].offset, index.cols[j].len);
                     offset += index.cols[j].len;
                 }

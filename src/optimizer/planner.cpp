@@ -23,8 +23,21 @@ See the Mulan PSL v2 for more details. */
 #include "record_printer.h"
 
 // 目前的索引匹配规则为：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
-bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_conds, std::vector<std::string>& index_col_names) {
-
+bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_conds, std::vector<std::string>& index_col_names, bool flag) {
+    index_col_names.clear();
+    HashMap<std::string, int> M;
+    for(auto& cond: curr_conds) {
+        if(cond.is_rhs_val && ((cond.op == OP_EQ) | flag) && cond.lhs_col.tab_name.compare(tab_name) == 0 && !M[cond.lhs_col.col_name])
+            index_col_names.push_back(cond.lhs_col.col_name), M[cond.lhs_col.col_name] = 1;
+    }
+    TabMeta& tab = sm_manager_->db_.get_table(tab_name);
+    if (curr_conds.size() == 2 && (curr_conds[0].op == OP_LT || curr_conds[0].op == OP_LE)
+                                      && (curr_conds[1].op == OP_GT || curr_conds[1].op == OP_GE))
+        std::swap(curr_conds[0], curr_conds[1]);
+    bool right_2 = curr_conds.size() == 2 && (curr_conds[0].op == OP_GT || curr_conds[0].op == OP_GE)
+                                      && (curr_conds[1].op == OP_LT || curr_conds[1].op == OP_LE);
+    if(tab.is_index(index_col_names))
+        return !flag || (curr_conds.size() == 1 && curr_conds[0].op != OP_GE) || right_2;
     return false;
 }
 
@@ -95,7 +108,7 @@ int push_conds(Condition *cond, std::shared_ptr<Plan> plan)
     return false;
 }
 
-std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table, std::vector<std::string> &joined_tables, 
+std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table, std::vector<std::string> &joined_tables,
                 std::vector<std::shared_ptr<Plan>> plans)
 {
     for (size_t i = 0; i < plans.size(); i++) {
@@ -113,7 +126,7 @@ std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table, std::vector<std:
 
 std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context)
 {
-    
+
     //TODO 实现逻辑优化规则
 
     return query;
@@ -122,11 +135,11 @@ std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> quer
 std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> query, Context *context)
 {
     std::shared_ptr<Plan> plan = make_one_rel(query);
-    
+
     // 其他物理优化
 
     // 处理orderby
-    plan = generate_sort_plan(query, std::move(plan)); 
+    plan = generate_sort_plan(query, std::move(plan));
 
     return plan;
 }
@@ -143,10 +156,10 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query)
         auto curr_conds = pop_conds(query->conds, tables[i]);
         // int index_no = get_indexNo(tables[i], curr_conds);
         std::vector<std::string> index_col_names;
-        bool index_exist = get_index_cols(tables[i], curr_conds, index_col_names);
+        bool index_exist = get_index_cols(tables[i], curr_conds, index_col_names, true);
         if (index_exist == false) {  // 该表没有索引
             index_col_names.clear();
-            table_scan_executors[i] = 
+            table_scan_executors[i] =
                 std::make_shared<ScanPlan>(T_SeqScan, sm_manager_, tables[i], curr_conds, index_col_names);
         } else {  // 存在索引
             table_scan_executors[i] =
@@ -161,7 +174,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query)
     // 获取where条件
     auto conds = std::move(query->conds);
     std::shared_ptr<Plan> table_join_executors;
-    
+
     int scantbl[tables.size()];
     for(size_t i = 0; i < tables.size(); i++)
     {
@@ -197,16 +210,16 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query)
             if (std::find(joined_tables.begin(), joined_tables.end(), it->rhs_col.tab_name) == joined_tables.end()) {
                 right_need_to_join_executors = pop_scan(scantbl, it->rhs_col.tab_name, joined_tables, table_scan_executors);
                 isneedreverse = true;
-            } 
+            }
 
             if(left_need_to_join_executors != nullptr && right_need_to_join_executors != nullptr) {
                 std::vector<Condition> join_conds{*it};
-                std::shared_ptr<Plan> temp_join_executors = std::make_shared<JoinPlan>(T_NestLoop, 
-                                                                    std::move(left_need_to_join_executors), 
-                                                                    std::move(right_need_to_join_executors), 
+                std::shared_ptr<Plan> temp_join_executors = std::make_shared<JoinPlan>(T_NestLoop,
+                                                                    std::move(left_need_to_join_executors),
+                                                                    std::move(right_need_to_join_executors),
                                                                     join_conds);
-                table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(temp_join_executors), 
-                                                                    std::move(table_join_executors), 
+                table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(temp_join_executors),
+                                                                    std::move(table_join_executors),
                                                                     std::vector<Condition>());
             } else if(left_need_to_join_executors != nullptr || right_need_to_join_executors != nullptr) {
                 if(isneedreverse) {
@@ -218,7 +231,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query)
                     left_need_to_join_executors = std::move(right_need_to_join_executors);
                 }
                 std::vector<Condition> join_conds{*it};
-                table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(left_need_to_join_executors), 
+                table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(left_need_to_join_executors),
                                                                     std::move(table_join_executors), join_conds);
             } else {
                 push_conds(std::move(&(*it)), table_join_executors);
@@ -233,7 +246,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query)
     //连接剩余表
     for (size_t i = 0; i < tables.size(); i++) {
         if(scantbl[i] == -1) {
-            table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(table_scan_executors[i]), 
+            table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(table_scan_executors[i]),
                                                     std::move(table_join_executors), std::vector<Condition>());
         }
     }
@@ -261,7 +274,7 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query, 
         if(col.name.compare(x->order->cols->col_name) == 0 )
         sel_col = {.tab_name = col.tab_name, .col_name = col.name};
     }
-    return std::make_shared<SortPlan>(T_Sort, std::move(plan), sel_col, 
+    return std::make_shared<SortPlan>(T_Sort, std::move(plan), sel_col,
                                     x->order->orderby_dir == ast::OrderBy_DESC);
 }
 
@@ -280,7 +293,7 @@ std::shared_ptr<Plan> Planner::generate_select_plan(std::shared_ptr<Query> query
     //物理优化
     auto sel_cols = query->cols;
     std::shared_ptr<Plan> plannerRoot = physical_optimization(query, context);
-    plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), 
+    plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot),
                                                         std::move(sel_cols));
 
     return plannerRoot;
@@ -315,7 +328,7 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
         plannerRoot = std::make_shared<DDLPlan>(T_DropIndex, x->tab_name, x->col_names, std::vector<ColDef>());
     } else if (auto x = std::dynamic_pointer_cast<ast::InsertStmt>(query->parse)) {
         // insert;
-        plannerRoot = std::make_shared<DMLPlan>(T_Insert, std::shared_ptr<Plan>(),  x->tab_name,  
+        plannerRoot = std::make_shared<DMLPlan>(T_Insert, std::shared_ptr<Plan>(),  x->tab_name,
                                                     query->values, std::vector<Condition>(), std::vector<SetClause>());
     } else if (auto x = std::dynamic_pointer_cast<ast::DeleteStmt>(query->parse)) {
         // delete;
@@ -324,18 +337,18 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
         // 只有一张表，不需要进行物理优化了
         // int index_no = get_indexNo(x->tab_name, query->conds);
         std::vector<std::string> index_col_names;
-        bool index_exist = get_index_cols(x->tab_name, query->conds, index_col_names);
-        
+        bool index_exist = get_index_cols(x->tab_name, query->conds, index_col_names, false);
+
         if (!index_exist) {  // 该表没有索引
             index_col_names.clear();
-            table_scan_executors = 
+            table_scan_executors =
                 std::make_shared<ScanPlan>(T_SeqScan, sm_manager_, x->tab_name, query->conds, index_col_names);
         } else {  // 存在索引
             table_scan_executors =
                 std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, x->tab_name, query->conds, index_col_names);
         }
 
-        plannerRoot = std::make_shared<DMLPlan>(T_Delete, table_scan_executors, x->tab_name,  
+        plannerRoot = std::make_shared<DMLPlan>(T_Delete, table_scan_executors, x->tab_name,
                                                 std::vector<Value>(), query->conds, std::vector<SetClause>());
     } else if (auto x = std::dynamic_pointer_cast<ast::UpdateStmt>(query->parse)) {
         // update;
@@ -344,18 +357,18 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
         // 只有一张表，不需要进行物理优化了
         // int index_no = get_indexNo(x->tab_name, query->conds);
         std::vector<std::string> index_col_names;
-        bool index_exist = get_index_cols(x->tab_name, query->conds, index_col_names);
+        bool index_exist = get_index_cols(x->tab_name, query->conds, index_col_names, false);
 
-        if (index_exist == false) {  // 该表没有索引
+        if (!index_exist) {  // 该表没有索引
         index_col_names.clear();
-            table_scan_executors = 
+            table_scan_executors =
                 std::make_shared<ScanPlan>(T_SeqScan, sm_manager_, x->tab_name, query->conds, index_col_names);
         } else {  // 存在索引
             table_scan_executors =
                 std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, x->tab_name, query->conds, index_col_names);
         }
         plannerRoot = std::make_shared<DMLPlan>(T_Update, table_scan_executors, x->tab_name,
-                                                     std::vector<Value>(), query->conds, 
+                                                     std::vector<Value>(), query->conds,
                                                      query->set_clauses);
     } else if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(query->parse)) {
 

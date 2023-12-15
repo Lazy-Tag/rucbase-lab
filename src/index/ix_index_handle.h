@@ -121,7 +121,7 @@ class IxNodeHandle {
 
     std::pair<page_id_t, int> internal_lookup(const char *key);
 
-    bool leaf_lookup(const char *key, Rid **value);
+    std::pair<bool, int> leaf_lookup(const char *key, Rid **value);
 
     std::pair<int, int> insert(const char *key, const Rid &value);
 
@@ -284,6 +284,8 @@ class IxIndexHandle {
     Iid leaf_end() const;
 
     Iid leaf_begin() const;
+
+    bool range_query(const char *lk, const char *rk, std::vector<Rid> *result, Transaction *transaction, bool le, bool ge);
 
    private:
     // 辅助函数

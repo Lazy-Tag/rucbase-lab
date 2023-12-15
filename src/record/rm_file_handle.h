@@ -89,7 +89,7 @@ class RmFileHandle {
 
     RmPageHandle fetch_page_handle(int page_no) const;
 
-    bool getRecord(char *buf, const Rid &rid, Context *context, int len);
+    bool getRecord(char *buf, const Rid &rid, Context *context, int len, bool is_read);
 
     bool checkGapLock(std::vector<ColMeta>& cols, std::vector<Value>& values, Context *context);
    private:

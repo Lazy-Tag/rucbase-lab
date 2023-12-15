@@ -168,8 +168,8 @@ RmPageHandle RmFileHandle::create_page_handle() {
     return create_new_page_handle();
 }
 
-bool RmFileHandle::getRecord(char* buf, const Rid& rid, Context* context, int len) {
-    if (!context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_)) return false;
+bool RmFileHandle::getRecord(char* buf, const Rid& rid, Context* context, int len, bool is_read) {
+    if (is_read && !context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_)) return false;
     auto page_handle = fetch_page_handle(rid.page_no);
     memcpy(buf, page_handle.get_slot(rid.slot_no), len);
     return true;
@@ -177,15 +177,16 @@ bool RmFileHandle::getRecord(char* buf, const Rid& rid, Context* context, int le
 
 bool RmFileHandle::checkGapLock(std::vector<ColMeta>& cols, std::vector<Value>& values, Context* context) {
     auto& gap_lock = context->lock_mgr_->gap_lock[fd_];
-    auto txn_id = context->txn_->get_transaction_id();
     for (size_t i = 0; i < values.size(); i++) {
         auto val = values[i];
         auto col = cols[i];
         for (const auto& it : gap_lock) {
+            if (it.first.first == context->txn_->get_transaction_id()) continue;
             if (it.first.second == col.name) {
                 auto vec = it.second;
                 for (auto& cond : vec) {
-                    if (!checkVal(cond, val)) return false;
+                    if (!checkVal(cond, val))
+                        return false;
                 }
             }
         }
