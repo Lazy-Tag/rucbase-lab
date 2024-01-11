@@ -193,7 +193,7 @@ IxIndexHandle::IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffe
     int now_page_no = disk_manager_->get_fd2pageno(fd);
     disk_manager_->set_fd2pageno(fd, now_page_no + 1);
 
-    node_mutex[now_page_no] = new std::shared_mutex();
+    node_mutex[file_hdr_->root_page_] = new std::shared_mutex();
     node_mutex[IX_LEAF_HEADER_PAGE] = new std::shared_mutex();
     auto leaf_header = fetch_node(IX_LEAF_HEADER_PAGE);
     leaf_header->set_next_leaf(2); leaf_header->set_prev_leaf(2);
@@ -748,7 +748,7 @@ Iid IxIndexHandle::leaf_begin() const {
  */
 IxNodeHandle *IxIndexHandle::fetch_node(int page_no) const {
     Page *page = buffer_pool_manager_->fetch_page(PageId{fd_, page_no});
-    IxNodeHandle *node = new IxNodeHandle(file_hdr_, page);
+    auto *node = new IxNodeHandle(file_hdr_, page);
     return node;
 }
 
